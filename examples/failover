@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+
+import sys
+import logging
+import argparse
+import subprocess
+
+import mcp
+
+log = logging.getLogger('failover')
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
+log.addHandler(console)
+
+def launcher(args, event, cmd):
+    try:
+        uid = str(event.uuid)
+        state = 'MASTER' if event.type == mcp.MASTER else 'FOLLOWER'
+        log.info('%s: Entered %s state.', uid, state)
+        if cmd:
+            log.info('%s: Launching command: `%s %s\'.', uid, cmd, state)
+            return subprocess.Popen([cmd, state])
+    except Exception as e:
+        logging.exception(e)
+
+def on_master(args, event):
+    return launcher(args, event, args.up)
+
+def on_follower(args, event):
+    return launcher(args, event, args.down)
+
+def main(args):
+    host = args.host
+    port = args.port
+    hb = args.heartbeat
+    et = args.timeout
+    et_low = int(max(et / 1.5, hb * 10))
+    et_high = int(max(et * 1.5, hb * 22))
+    et_range = (et_low, et_high)
+
+    if args.debug:
+        args.verbose = True
+        args.mcp_info = True
+
+    if args.verbose:
+        log.setLevel(logging.INFO)
+
+    if args.mcp_info:
+        mcp.logger().setLevel('INFO')
+
+    if args.mcp_debug:
+        mcp.logger().setLevel('DEBUG')
+
+    try:
+        processes = []
+        state = mcp.FOLLOWER
+        for event in mcp.events(host, port, nodes = args.nodes,
+                                  heartbeat = args.heartbeat,
+                                  timeout_range = et_range
+                                 ):
+            process = None
+            et = event.type
+            if et == mcp.FOLLOWER:
+                if state != et:
+                    process = on_follower(args, event)
+                state = et
+
+            if et == mcp.MASTER:
+                if state != et:
+                    process = on_master(args, event)
+                state = et
+
+            if process:
+                processes.append(process)
+                processes = [p for p in processes if p.poll()]
+
+    except KeyboardInterrupt:
+        pass
+
+    return 0
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nodes', type=int, required=True,
+                        help='number of nodes in the cluster')
+    parser.add_argument('--host', type=str, default='',
+                        help='broadcast address for sending')
+    parser.add_argument('--port', type=int, default=mcp.PORT)
+    parser.add_argument('--heartbeat', type=int, default=10,
+                        help='heartbeat interval in milliseconds')
+    parser.add_argument('--timeout', type=int, default=350,
+                        help='approximate failover timeout in milliseconds')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False)
+    parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--mcp-info', action='store_true', default=False)
+    parser.add_argument('--mcp-debug', action='store_true', default=False)
+    parser.add_argument('--up', default=None, metavar='CMD',
+                        help='command run when becoming Master')
+    parser.add_argument('--down', default=None, metavar='CMD',
+                        help='command run when demoted from Master [Follower]')
+    args = parser.parse_args()
+
+    sys.exit(main(args))
+
