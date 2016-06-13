@@ -285,4 +285,5 @@ def loop(host, port, **kwargs):
             on_tick(user_data, event)
 
 if __name__ == '__main__':
+    logger().setLevel(logging.INFO)
     loop('', PORT)
