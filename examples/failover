@@ -73,7 +73,8 @@ def main(args):
 
             if process:
                 processes.append(process)
-                processes = [p for p in processes if p.poll()]
+
+            processes = [p for p in processes if p.poll()]
 
     except KeyboardInterrupt:
         pass
