@@ -16,7 +16,9 @@ formatter = logging.Formatter(fmt)
 console.setFormatter(formatter)
 console.setLevel(logging.DEBUG)
 log.setLevel(logging.CRITICAL)
-log.addHandler(console)
+
+if not log.handlers:
+    log.addHandler(console)
 
 # 224.0.0.0-255 lan multi-cast
 # 224.0.0.1 == all hosts on local segment
