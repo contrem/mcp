@@ -16,7 +16,9 @@ formatter = logging.Formatter(fmt)
 console.setFormatter(formatter)
 console.setLevel(logging.DEBUG)
 log.setLevel(logging.CRITICAL)
-log.addHandler(console)
+
+if not log.handlers:
+    log.addHandler(console)
 
 # 224.0.0.0-255 lan multi-cast
 # 224.0.0.1 == all hosts on local segment
@@ -126,9 +128,10 @@ def follow(ctx):
         # heartbeat or vote request
         if message.type == MSG_HEARTBEAT:
             # heartbeat
-            if ctx.master is None:
-                log.info('%s: term %d joining master %s',
-                         str(ctx.uuid), message.term, str(message.uuid))
+            if ctx.master != message.uuid:
+                log.info('%s: term %d joining master %s %s',
+                         str(ctx.uuid), message.term, str(message.uuid),
+                         address)
             ctx.election_timeout = next_election_timeout(et_low, et_high)
             ctx.term = message.term
             ctx.master = message.uuid
@@ -287,4 +290,5 @@ def loop(host, port, **kwargs):
             on_tick(user_data, event)
 
 if __name__ == '__main__':
+    logger().setLevel(logging.INFO)
     loop('', PORT)
