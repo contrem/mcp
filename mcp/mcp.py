@@ -105,6 +105,9 @@ def recv_message(ctx):
     if not message or len(message) < PKT_FMT.size: return (None, address)
     return parse_message(message), address
 
+def next_term(term):
+    return (term + 1) & TERM_MASK
+
 def follow(ctx):
     et_low, et_high = ctx.et_range
 
@@ -134,8 +137,7 @@ def follow(ctx):
             # vote request
             log.info('%s: term %d election request from %s',
                      str(ctx.uuid), message.term, str(message.uuid))
-            expected_term = (ctx.term + 1) & TERM_MASK
-            if message.term >= expected_term:
+            if message.term >= next_term(ctx.term):
                 ctx.election_timeout = next_election_timeout(et_low, et_high)
                 ctx.term = message.term
                 send_message(ctx, MSG_VOTE, address)
@@ -147,7 +149,7 @@ def follow(ctx):
     yield FOLLOWER
 
 def campaign(ctx):
-    ctx.term = (ctx.term + 1) & TERM_MASK
+    ctx.term = next_term(ctx.term)
     et_low, et_high = ctx.et_range
     ctx.election_timeout = next_election_timeout(et_low, et_high)
 
