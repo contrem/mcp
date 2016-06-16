@@ -125,9 +125,10 @@ def follow(ctx):
         # heartbeat or vote request
         if message.type == MSG_HEARTBEAT:
             # heartbeat
-            if ctx.master is None:
-                log.info('%s: term %d joining master %s',
-                         str(ctx.uuid), message.term, str(message.uuid))
+            if ctx.master != message.uuid:
+                log.info('%s: term %d joining master %s %s',
+                         str(ctx.uuid), message.term, str(message.uuid),
+                         address)
             ctx.election_timeout = next_election_timeout(et_low, et_high)
             ctx.term = message.term
             ctx.master = message.uuid
