@@ -216,11 +216,16 @@ def lead(ctx):
 
             if message.type == MSG_HEARTBEAT and message.uuid != ctx.uuid:
                 # heartbeat - another master up
-                if message.term > ctx.term:
-                    # no longer the master
-                    ctx.term = message.term
-                    ctx.master = message.uuid
-                    break
+                if message.term >= ctx.term:
+                    step_down = True
+                    if message.term == ctx.term:
+                        if message.uuid >= ctx.uuid:
+                            step_down = False
+                    if step_down:
+                        # no longer the master
+                        ctx.term = message.term
+                        ctx.master = message.uuid
+                        break
 
         delay = ctx.heartbeat / 1.5 - (time.time() - start)
         if delay > 0:
